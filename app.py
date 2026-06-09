@@ -1,171 +1,125 @@
 ```python
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# --------------------
+# PAGE CONFIG
+# --------------------
 st.set_page_config(
     page_title="Flight Passenger Dashboard",
     page_icon="✈️",
     layout="wide"
 )
 
-# ----------------------------
+# --------------------
 # LOAD DATA
-# ----------------------------
+# --------------------
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/flights.csv")
-    return df
+    return pd.read_csv("data/flights.csv")
 
 df = load_data()
 
-# ----------------------------
-# SIDEBAR FILTERS
-# ----------------------------
-st.sidebar.title("Filters")
-
-years = sorted(df["year"].unique())
-months = [
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December"
-]
+# --------------------
+# SIDEBAR
+# --------------------
+st.sidebar.header("Filters")
 
 selected_years = st.sidebar.multiselect(
-    "Select Year",
-    years,
-    default=years
+    "Select Years",
+    options=sorted(df["year"].unique()),
+    default=sorted(df["year"].unique())
 )
 
 selected_months = st.sidebar.multiselect(
-    "Select Month",
-    months,
-    default=months
+    "Select Months",
+    options=df["month"].unique(),
+    default=df["month"].unique()
 )
 
 min_pass = int(df["passengers"].min())
 max_pass = int(df["passengers"].max())
 
-passenger_range = st.sidebar.slider(
+selected_range = st.sidebar.slider(
     "Passenger Range",
     min_pass,
     max_pass,
     (min_pass, max_pass)
 )
 
-search_month = st.sidebar.text_input(
-    "Search Month"
-)
-
+# --------------------
+# FILTER DATA
+# --------------------
 filtered_df = df[
     (df["year"].isin(selected_years)) &
     (df["month"].isin(selected_months)) &
-    (df["passengers"] >= passenger_range[0]) &
-    (df["passengers"] <= passenger_range[1])
+    (df["passengers"] >= selected_range[0]) &
+    (df["passengers"] <= selected_range[1])
 ]
 
-if search_month:
-    filtered_df = filtered_df[
-        filtered_df["month"].str.contains(
-            search_month,
-            case=False
-        )
-    ]
-
-# ----------------------------
+# --------------------
 # TITLE
-# ----------------------------
-st.title("✈️ Airline Passenger Analytics Dashboard")
-st.markdown("Analysis of airline passengers from 1949 to 1960")
+# --------------------
+st.title("✈️ Flight Passenger Analytics Dashboard")
+st.markdown("Airline Passenger Dataset (1949 - 1960)")
 
-# ----------------------------
+# --------------------
 # KPI CARDS
-# ----------------------------
-total_records = len(filtered_df)
-total_passengers = filtered_df["passengers"].sum()
-avg_passengers = round(filtered_df["passengers"].mean(), 2)
-max_passengers = filtered_df["passengers"].max()
-min_passengers = filtered_df["passengers"].min()
+# --------------------
+c1, c2, c3, c4 = st.columns(4)
 
-c1, c2, c3, c4, c5 = st.columns(5)
-
-c1.metric("Records", total_records)
-c2.metric("Total Passengers", f"{total_passengers:,}")
-c3.metric("Average", avg_passengers)
-c4.metric("Maximum", max_passengers)
-c5.metric("Minimum", min_passengers)
+c1.metric("Total Records", len(filtered_df))
+c2.metric("Total Passengers", int(filtered_df["passengers"].sum()))
+c3.metric("Average Passengers", round(filtered_df["passengers"].mean(), 2))
+c4.metric("Max Passengers", int(filtered_df["passengers"].max()))
 
 st.divider()
 
-# ----------------------------
+# --------------------
 # LINE CHART
-# ----------------------------
+# --------------------
 st.subheader("Passenger Trend")
 
-line_df = filtered_df.copy()
-line_df["date"] = (
-    line_df["month"] + " " +
-    line_df["year"].astype(str)
-)
+line_data = filtered_df.copy()
+line_data["index"] = range(len(line_data))
 
-fig, ax = plt.subplots(figsize=(12,5))
-ax.plot(
-    range(len(line_df)),
-    line_df["passengers"],
-    marker="o"
-)
-ax.set_title("Passenger Trend")
+fig, ax = plt.subplots(figsize=(10, 4))
+ax.plot(line_data["index"], line_data["passengers"], marker="o")
+ax.set_xlabel("Time")
 ax.set_ylabel("Passengers")
+ax.set_title("Passenger Trend")
 st.pyplot(fig)
 
-# ----------------------------
+# --------------------
 # BAR CHART
-# ----------------------------
+# --------------------
 st.subheader("Passengers by Year")
 
-yearly = (
-    filtered_df
-    .groupby("year")["passengers"]
-    .sum()
-    .reset_index()
-)
+yearly = filtered_df.groupby("year")["passengers"].sum().reset_index()
 
-fig, ax = plt.subplots(figsize=(10,5))
-sns.barplot(
-    data=yearly,
-    x="year",
-    y="passengers",
-    ax=ax
-)
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(data=yearly, x="year", y="passengers", ax=ax)
 st.pyplot(fig)
 
-# ----------------------------
+# --------------------
 # HISTOGRAM
-# ----------------------------
-st.subheader("Passenger Distribution")
+# --------------------
+st.subheader("Histogram")
 
-fig, ax = plt.subplots(figsize=(10,5))
-sns.histplot(
-    filtered_df["passengers"],
-    bins=20,
-    kde=True,
-    ax=ax
-)
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.histplot(filtered_df["passengers"], bins=20, kde=True, ax=ax)
 st.pyplot(fig)
 
-# ----------------------------
+# --------------------
 # PIE CHART
-# ----------------------------
-st.subheader("Monthly Share")
+# --------------------
+st.subheader("Passenger Share By Month")
 
-pie_df = (
-    filtered_df
-    .groupby("month")["passengers"]
-    .sum()
-)
+pie_df = filtered_df.groupby("month")["passengers"].sum()
 
-fig, ax = plt.subplots(figsize=(8,8))
+fig, ax = plt.subplots(figsize=(8, 8))
 ax.pie(
     pie_df,
     labels=pie_df.index,
@@ -173,12 +127,12 @@ ax.pie(
 )
 st.pyplot(fig)
 
-# ----------------------------
-# SCATTER
-# ----------------------------
-st.subheader("Year vs Passengers")
+# --------------------
+# SCATTER PLOT
+# --------------------
+st.subheader("Scatter Plot")
 
-fig, ax = plt.subplots(figsize=(10,5))
+fig, ax = plt.subplots(figsize=(10, 4))
 sns.scatterplot(
     data=filtered_df,
     x="year",
@@ -187,57 +141,52 @@ sns.scatterplot(
 )
 st.pyplot(fig)
 
-# ----------------------------
-# BOXPLOT
-# ----------------------------
-st.subheader("Passenger Boxplot")
+# --------------------
+# BOX PLOT
+# --------------------
+st.subheader("Box Plot")
 
-fig, ax = plt.subplots(figsize=(10,5))
+fig, ax = plt.subplots(figsize=(10, 4))
 sns.boxplot(
-    data=filtered_df,
-    y="passengers",
+    y=filtered_df["passengers"],
     ax=ax
 )
 st.pyplot(fig)
 
-# ----------------------------
+# --------------------
 # HEATMAP
-# ----------------------------
+# --------------------
 st.subheader("Heatmap")
 
-heat_df = filtered_df.pivot_table(
+pivot = filtered_df.pivot_table(
     values="passengers",
     index="month",
     columns="year"
 )
 
-fig, ax = plt.subplots(figsize=(12,8))
+fig, ax = plt.subplots(figsize=(12, 6))
 sns.heatmap(
-    heat_df,
+    pivot,
     cmap="YlGnBu",
     ax=ax
 )
 st.pyplot(fig)
 
-# ----------------------------
+# --------------------
 # AREA CHART
-# ----------------------------
+# --------------------
 st.subheader("Area Chart")
 
-area_df = (
-    filtered_df
-    .groupby("year")["passengers"]
-    .sum()
-)
+area_data = filtered_df.groupby("year")["passengers"].sum()
 
-st.area_chart(area_df)
+st.area_chart(area_data)
 
-# ----------------------------
+# --------------------
 # COUNT PLOT
-# ----------------------------
+# --------------------
 st.subheader("Count Plot")
 
-fig, ax = plt.subplots(figsize=(10,5))
+fig, ax = plt.subplots(figsize=(10, 4))
 sns.countplot(
     data=filtered_df,
     x="year",
@@ -245,36 +194,38 @@ sns.countplot(
 )
 st.pyplot(fig)
 
-# ----------------------------
+# --------------------
 # VIOLIN PLOT
-# ----------------------------
+# --------------------
 st.subheader("Violin Plot")
 
-fig, ax = plt.subplots(figsize=(12,5))
+fig, ax = plt.subplots(figsize=(12, 5))
 sns.violinplot(
     data=filtered_df,
     x="month",
     y="passengers",
     ax=ax
 )
+
 plt.xticks(rotation=45)
 st.pyplot(fig)
 
-# ----------------------------
+# --------------------
 # DATA TABLE
-# ----------------------------
-st.subheader("Dataset Preview")
+# --------------------
+st.subheader("Dataset")
+
 st.dataframe(filtered_df)
 
-# ----------------------------
-# DOWNLOAD
-# ----------------------------
+# --------------------
+# DOWNLOAD BUTTON
+# --------------------
 csv = filtered_df.to_csv(index=False)
 
 st.download_button(
-    "Download Filtered Data",
-    csv,
-    "filtered_flights.csv",
-    "text/csv"
+    label="Download Filtered Data",
+    data=csv,
+    file_name="filtered_flights.csv",
+    mime="text/csv"
 )
 ```
